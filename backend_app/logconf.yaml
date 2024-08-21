@@ -1,0 +1,43 @@
+version: 1
+disable_existing_loggers: False
+formatters:
+  brief:
+    format: '%(levelname)s - %(message)s'
+  precise:
+    format: '%(levelname)s:%(asctime)s - %(module)s:%(lineno)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: brief
+    level: INFO
+    stream: ext://sys.stdout
+  uvicorn:
+    class: logging.handlers.RotatingFileHandler
+    formatter: precise
+    level: INFO
+    filename: log/uvicorn.log
+    mode: w
+  backend:
+    class: logging.handlers.RotatingFileHandler
+    formatter: precise
+    level: DEBUG
+    filename: log/backend.log
+    mode: w
+loggers:
+  uvicorn.error:
+    level: INFO
+    handlers:
+      - console
+      - uvicorn
+    propagate: no
+  uvicorn.access:
+    level: INFO
+    handlers:
+      - console
+      - uvicorn
+    propagate: no
+root:
+  level: INFO
+  handlers:
+    - backend
+  propagate: no

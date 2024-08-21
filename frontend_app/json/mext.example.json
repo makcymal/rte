@@ -1,0 +1,124 @@
+{
+    "header": "mext!gvr:knl!n01p001!1711098779",
+    "cpu": [
+        {
+            "guest": 0.0,
+            "idle": 77.2,
+            "softirq": 1.0,
+            "system": 5.0,
+            "guest_nice": 0.0,
+            "user": 14.9,
+            "irq": 1.0,
+            "iowait": 1.0,
+            "nice": 0.0,
+            "steal": 0.0,
+            "freq": 2420
+        },
+        {
+            "guest": 0.0,
+            "idle": 98.0,
+            "softirq": 0.0,
+            "system": 0.0,
+            "guest_nice": 0.0,
+            "user": 1.0,
+            "irq": 1.0,
+            "iowait": 0.0,
+            "nice": 0.0,
+            "steal": 0.0,
+            "freq": 1400
+        },
+        {
+            "guest": 0.0,
+            "idle": 98.0,
+            "softirq": 0.0,
+            "system": 0.0,
+            "guest_nice": 0.0,
+            "user": 2.0,
+            "irq": 0.0,
+            "iowait": 0.0,
+            "nice": 0.0,
+            "steal": 0.0,
+            "freq": 1382
+        },
+        {
+            "guest": 0.0,
+            "idle": 99.0,
+            "softirq": 0.0,
+            "system": 0.0,
+            "guest_nice": 0.0,
+            "user": 1.0,
+            "irq": 0.0,
+            "iowait": 0.0,
+            "nice": 0.0,
+            "steal": 0.0,
+            "freq": 1400
+        },
+        {
+            "guest": 0.0,
+            "idle": 98.0,
+            "softirq": 0.0,
+            "system": 0.0,
+            "guest_nice": 0.0,
+            "user": 2.0,
+            "irq": 0.0,
+            "iowait": 0.0,
+            "nice": 0.0,
+            "steal": 0.0,
+            "freq": 1400
+        },
+        {
+            "guest": 0.0,
+            "idle": 97.0,
+            "softirq": 0.0,
+            "system": 1.0,
+            "guest_nice": 0.0,
+            "user": 1.0,
+            "irq": 1.0,
+            "iowait": 0.0,
+            "nice": 0.0,
+            "steal": 0.0,
+            "freq": 1397
+        }
+    ],
+    "net": [
+        {
+            "name": "lo", 
+            "recv": 1526,
+            "sent": 1526,
+            "errin": 0,
+            "errout": 0,
+            "dropin": 0,
+            "dropout": 0
+        },
+        {
+            "name": "wlan0",
+            "recv": 11157,
+            "sent": 4202,
+            "errin": 0,
+            "errout": 0,
+            "dropin": 3,
+            "dropout": 0
+        }
+    ],
+    "mem": {
+        "used": 5045407744,
+        "buffers": 48308,
+        "cached": 1875560,
+        "shared": 96332,
+        "swap": 173277184
+    },
+    "dsk": [
+        {
+            "name": "nvme0n1p2",
+            "used": 46821780,
+            "read": 15180,
+            "write": 48
+        },
+        {
+            "name": "nvme0n1p1",
+            "used": 73416,
+            "read": 0,
+            "write": 0
+        }
+    ]
+}

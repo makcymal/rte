@@ -1,0 +1,4 @@
+{
+    "header": "lsob",
+    "batches": ["gvr:cascade", "gvr:dgx", "gvr:gpu", "gvr:icelake", "gvr:knl", "hlit:wn", "jhub", "service", "storage", "vm"]
+}

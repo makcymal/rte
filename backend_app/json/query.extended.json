@@ -1,0 +1,17 @@
+{
+    "mark": "ext",   
+    "interval": 1,
+    "measure": "kb",
+    
+    "cpu_fields": ["system", "user", "nice", "idle", "iowait", "irq", "softirq", "steal", "guest", "guest_nice", "freq"],
+    "cpu_extended": true,
+    
+    "net_fields": ["recv", "sent", "errin", "errout", "dropin", "dropout"],
+    "net_extended": true,
+    
+    "mem_fields": ["used", "buffers", "cached", "shared", "swap"],
+    "mem_extended": true,
+    
+    "dsk_fields": ["used", "read", "write"],
+    "dsk_extended": true
+}

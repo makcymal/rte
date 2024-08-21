@@ -1,0 +1,45 @@
+{
+    "header": "spec!gvr:knl!n01p001",
+    "cpu": {
+        "cores_phys": 6,
+        "cores_logic": 6,
+        "min_freq": [
+            1400.0,
+            1400.0,
+            1400.0,
+            1400.0,
+            1400.0,
+            1400.0
+        ],
+        "max_freq": [
+            2375.0,
+            2375.0,
+            2375.0,
+            2375.0,
+            2375.0,
+            2375.0
+        ]
+    },
+    "net": {
+        "nics": [
+            "lo",
+            "wlan0"
+        ]
+    },
+    "mem": {
+        "mem_total": 7483304,
+        "swp_total": 9227468
+    },
+    "dsk": [
+        {
+            "name": "nvme0n1p2",
+            "mountpoint": "/",
+            "total": 480991220
+        },
+        {
+            "name": "nvme0n1p1",
+            "mountpoint": "/efi",
+            "total": 1021872
+        }
+    ]
+}
