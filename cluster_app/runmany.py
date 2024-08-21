@@ -1,4 +1,3 @@
-import os
 import subprocess
 import randomname as rn
 from random import choice
@@ -29,5 +28,5 @@ if __name__ == "__main__":
     for i in range(N):
       batch = choice(batches)
       label = labels[i]
-      sp = subprocess.Popen(["./run.py", batch, label])
+      sp = subprocess.Popen(["python run.py", batch, label], shell=True)
       print(f"{batch}!{label} is running with pid {sp.pid}", file=log)

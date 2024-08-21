@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-import pathlib
 from copy import deepcopy as cp
 from utils import Publisher, Singleton
 import config
@@ -25,10 +24,11 @@ class Query(Publisher, metaclass=Singleton):
     super().__init__()
 
     if not config.DEBUG:
-      self.logfile = "/var/log/rtma/rtma-sensor.log"
+      self.logfile = "rte-sensor.log"
+      # self.logfile = "/var/log/rte/rte-sensor.log"
       self.loglevel = logging.INFO
     else:
-      self.logfile = "rtma-sensor.log"
+      self.logfile = "rte-sensor.log"
       self.loglevel = logging.DEBUG
 
     with open(self.logfile, "w"):
