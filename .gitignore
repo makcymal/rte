@@ -322,8 +322,8 @@ package-lock.json
 
 
 *.json
-!query*.json
-!response*.json
+!prompt*.json
+!report*.json
 !measures*.json
 !*.example.json
 

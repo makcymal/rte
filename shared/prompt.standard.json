@@ -1,0 +1,65 @@
+{
+  "mark": "standard",
+  "interval": 2,
+  "cpu": {
+    "fields": [
+      "system",
+      "user",
+      "iowait",
+      "idle",
+      "freq"
+    ],
+    "detailed": 0,
+    "units": {
+      "system": "%",
+      "user": "%",
+      "iowait": "%",
+      "idle": "%",
+      "freq": "hz"
+    }
+  },
+  "net": {
+    "fields": [
+      "recv",
+      "sent"
+    ],
+    "detailed": 0,
+    "units": {
+      "recv": "kb",
+      "sent": "kb"
+    }
+  },
+  "mem": {
+    "fields": [
+      "used",
+      "swap"
+    ],
+    "detailed": 0,
+    "units": {
+      "used": "kb",
+      "swap": "kb"
+    }
+  },
+  "dsk": {
+    "fields": [
+      "read",
+      "write"
+    ],
+    "detailed": 0,
+    "units": {
+      "read": "kb",
+      "write": "kb"
+    }
+  },
+  "gpu": {
+    "fields": [
+      "load",
+      "memory"
+    ],
+    "detailed": 0,
+    "units": {
+      "load": "%",
+      "memory": "mb"
+    }
+  }
+}

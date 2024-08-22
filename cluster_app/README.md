@@ -1,6 +1,9 @@
-### Resources monitoring
+`run.py`:
+Main event loop of sensor
+The backend must already be running when sensors are launched
+Sensor
 
-`export RTMA_SENSOR`
+### Resources monitoring
 
 Configure monitoring via `config.json` with the following fields:
 

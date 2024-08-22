@@ -1,6 +1,6 @@
 import json
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket
 from streaming.store import clients, sensors
 
 

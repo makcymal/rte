@@ -1,0 +1,79 @@
+{
+  "mark": "fallback",
+  "interval": 3,
+  "cpu": {
+    "fields": [
+      "system",
+      "user",
+      "iowait",
+      "idle",
+      "freq"
+    ],
+    "detailed": 0,
+    "units": {
+      "system": "%",
+      "user": "%",
+      "nice": "%",
+      "iowait": "%",
+      "idle": "%",
+      "irq": "%",
+      "softirq": "%",
+      "steal": "%",
+      "guest": "%",
+      "guest_nice": "%",
+      "freq": "hz"
+    }
+  },
+  "net": {
+    "fields": [
+      "recv",
+      "sent"
+    ],
+    "detailed": 0,
+    "units": {
+      "recv": "kb",
+      "sent": "kb",
+      "errin": "pcs",
+      "errout": "pcs",
+      "dropin": "pcs",
+      "dropout": "pcs"
+    }
+  },
+  "mem": {
+    "fields": [
+      "used",
+      "swap"
+    ],
+    "detailed": 0,
+    "units": {
+      "used": "kb",
+      "buffers": "kb",
+      "cached": "kb",
+      "shared": "kb",
+      "swap": "kb"
+    }
+  },
+  "dsk": {
+    "fields": [
+      "read",
+      "write"
+    ],
+    "detailed": 0,
+    "units": {
+      "used": "kb",
+      "read": "kb",
+      "write": "kb"
+    }
+  },
+  "gpu": {
+    "fields": [
+      "load",
+      "memory"
+    ],
+    "detailed": 0,
+    "units": {
+      "load": "%",
+      "memory": "mb"
+    }
+  }
+}

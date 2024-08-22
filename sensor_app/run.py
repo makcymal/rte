@@ -1,5 +1,4 @@
 # Main event loop of sensor
-# 
 
 
 import sys
@@ -10,7 +9,6 @@ import logging
 import asyncio as aio
 from asyncio import CancelledError
 
-from query import Query
 from trackers import all_trackers
 from utils import Singleton
 import config
@@ -21,7 +19,7 @@ query_lock = aio.Lock()
 logger = logging.getLogger(__name__)
 
 
-class Conn(metaclass=Singleton):
+class Conn:
     __slots__ = ("reader", "writer", "reader_lock", "writer_lock")
 
     def __init__(self):
