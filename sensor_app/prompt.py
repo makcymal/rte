@@ -1,196 +1,125 @@
 import json
-from copy import deepcopy as cp
-from utils import Publisher, Singleton
+import pathlib
 
-import logging
+from sensor import SENSOR_CATEGORIES
 
-logger = logging.getLogger(__name__)
+JSON_FALLBACK = pathlib.Path(__file__).parent / "scheme/prompt.fallback.json"
 
-
-class FixedCpuPrompt:
-    __slots__ = (
-        "fields",
-        "detailed",
-        "system",
-        "user",
-        "nice",
-        "iowait",
-        "idle",
-        "irq",
-        "softirq",
-        "steal",
-        "guest",
-        "guest_nice",
-        "freq",
-    )
-
-    def __init__(self):
-        for attr in self.__slots__:
-            setattr(self, attr, None)
-
-    def fallback(self):
-        self.fields = ["system", "user", "iowait", "idle", "freq"]
-        self.detailed = False
-        self.system = "%"
-        self.user = "%"
-        self.nice = "%"
-        self.iowait = "%"
-        self.idle = "%"
-        self.irq = "%"
-        self.softirq = "%"
-        self.steal = "%"
-        self.guest = "%"
-        self.guest_nice = "%"
-        self.freq = "hz"
-
-
-class FixedNetPrompt:
-    __slots__ = (
-        "fields",
-        "detailed",
-        "recv",
-        "sent",
-        "errin",
-        "errout",
-        "dropin",
-        "dropout",
-    )
-
-    def __init__(self):
-        for attr in self.__slots__:
-            setattr(self, attr, None)
-
-    def fallback(self):
-        self.fields = ["recv", "sent"]
-        self.detailed = 0
-        self.recv = "kb"
-        self.sent = "kb"
-        self.errin = "pcs"
-        self.errout = "pcs"
-        self.dropin = "pcs"
-        self.dropout = "pcs"
-
-
-class FixedMemPrompt:
-    __slots__ = ("fields", "used", "buffers", "cached", "shared", "swap")
-
-    def __init__(self):
-        for attr in self.__slots__:
-            setattr(self, attr, None)
-
-    def fallback(self):
-        self.fields = ["used", "swap"]
-        self.used = "kb"
-        self.buffers = "kb"
-        self.cached = "kb"
-        self.shared = "kb"
-        self.swap = "kb"
-
-
-class FixedDskPrompt:
-    __slots__ = ("fields", "per_dsk", "used", "read", "write")
-
-    def __init__(self):
-        for attr in self.__slots__:
-            setattr(self, attr, None)
-
-    def fallback(self):
-        self.fields = ["read", "write"]
-        self.detailed = 0
-        self.used = "kb"
-        self.read = "kb"
-        self.write = "kb"
-
-
-class FixedGpuPrompt:
-    __slots__ = ("fields" "per_gpu", "load", "memory")
-
-    def __init__(self):
-        for attr in self.__slots__:
-            setattr(self, attr, None)
-
-    def fallback(self):
-        self.fields = ["load", "memory"]
-        self.detailed = 0
-        self.load = "%"
-        self.memory = "mb"
-
-
-class FixedPrompt:
-    __slots__ = ("mark", "interval", "cpu", "net", "mem", "dsk", "gpu")
-
-
-FALLBACK_PROMPT = {
-    "mark": "fallback",
-    "interval": 3,
-    "cpu": {
-        "fields": ["system", "user", "iowait", "idle", "freq"],
-        "per_cpu": 0,
-        "system": "%",
-        "user": "%",
-        "nice": "%",
-        "iowait": "%",
-        "idle": "%",
-        "irq": "%",
-        "softirq": "%",
-        "steal": "%",
-        "guest": "%",
-        "guest_nice": "%",
-        "freq": "hz",
-    },
-    "net": {
-        "fields": ["recv", "sent"],
-        "per_nic": 0,
-        "recv": "kb",
-        "sent": "kb",
-        "errin": "pcs",
-        "errout": "pcs",
-        "dropin": "pcs",
-        "dropout": "pcs",
-    },
-    "mem": {
-        "fields": ["used", "swap"],
-        "used": "kb",
-        "buffers": "kb",
-        "cached": "kb",
-        "shared": "kb",
-        "swap": "kb",
-    },
-    "dsk": {
-        "fields": ["read", "write"],
-        "per_dsk": 0,
-        "used": "kb",
-        "read": "kb",
-        "write": "kb",
-    },
-    "gpu": {"fields": ["load", "memory"], "per_gpu": 0, "load": "%", "memory": "mb"},
+AVAIL_FIELDS = {
+    cat: set(json.load(open(JSON_FALLBACK, "r"))[cat]["units"].keys())
+    for cat in SENSOR_CATEGORIES
 }
 
 
-class Prompt(Publisher, metaclass=Singleton):
-    __slots__ = (
-        "prompt",
-        "fallback",
-    )
+class Prompt:
+    __slots__ = ("mark", "interval", *SENSOR_CATEGORIES)
+
+    def __init__(self, **kwargs):
+        self.load_fallback()
+
+        if len(kwargs) == 1:
+            match next(iter(kwargs.keys())):
+                case "prompt_filename":
+                    with open(kwargs["prompt_filename"], "r") as prompt_file:
+                        prompt_dict = json.load(prompt_file)
+                case "prompt_str":
+                    prompt_dict = json.loads(kwargs["prompt_str"])
+                case "prompt_dict":
+                    prompt_dict = kwargs["prompt_dict"]
+            self.merge_dict(prompt_dict)
+
+    def load_fallback(self):
+        with open(JSON_FALLBACK, "r") as prompt_file:
+            prompt_dict = json.load(prompt_file)
+        self.mark = prompt_dict["mark"]
+        self.interval = prompt_dict["interval"]
+        for cat in SENSOR_CATEGORIES:
+            setattr(self, cat, CategoryPrompt(cat, prompt_dict[cat]))
+
+    def validate(self):
+        for cat in SENSOR_CATEGORIES:
+            getattr(self, cat).validate()
+
+    def merge(self, other_prompt):
+        self.interval = other_prompt.interval
+        for cat in SENSOR_CATEGORIES:
+            getattr(self, cat).merge(getattr(other_prompt, cat))
+
+    def merge_dict(self, other_dict: dict):
+        if "interval" in other_dict:
+            self.interval = other_dict["interval"]
+        for cat in SENSOR_CATEGORIES:
+            cat_prompt = CategoryPrompt(cat, other_dict.get(cat, None))
+            cat_prompt.validate()
+            getattr(self, cat).merge(cat_prompt)
+
+    def __str__(self) -> str:
+        return "\n".join(
+            ["Prompt:"] + [str(getattr(self, cat)) for cat in SENSOR_CATEGORIES]
+        )
+
+
+class CategoryPrompt:
+    __slots__ = ("cat", "fields", "detailed", "units")
+
+    def __init__(self, cat: str, prompt_dict: dict | None):
+        self.cat = cat
+        if prompt_dict:
+            for attr in self.__class__.__slots__[1:]:
+                setattr(self, attr, prompt_dict.get(attr, None))
+        else:
+            for attr in self.__class__.__slots__[1:]:
+                setattr(self, attr, None)
+
+    def validate(self):
+        ins_idx = 0
+        if self.fields:
+            for idx, field in enumerate(self.fields):
+                if field in AVAIL_FIELDS[self.cat]:
+                    self.fields[ins_idx] = self.fields[idx]
+                    ins_idx += 1
+            self.fields = self.fields[:ins_idx]
+
+        if self.detailed not in (None, 0, 1):
+            self.detailed = 0
+
+    def merge(self, other_prompt):
+        if other_prompt.fields:
+            self.fields = other_prompt.fields
+        if other_prompt.detailed:
+            self.detailed = other_prompt.detailed
+        if other_prompt.units:
+            self.units.update(other_prompt.units)
+
+    def __str__(self) -> str:
+        return "\n".join(
+            [
+                f"{self.cat.capitalize()}Prompt:",
+                f"\tfields: {self.fields}",
+                f"\tdetailed: {self.detailed}",
+                f"\tunits: {self.units}",
+            ]
+        )
+
+
+class PromptStore:
+    __slots__ = ("prompts", "mark")
 
     def __init__(self):
-        super().__init__()
+        self.prompts = {"fallback": Prompt()}
+        self.mark = "fallback"
 
-        with open("prompt.fallback.json", "r") as fallback_file:
-            self.fallback = json.load(fallback_file)
-            self.prompt = cp(self.fallback)
+    def add_prompt(self, prompt_str: str):
+        prompt = Prompt(prompt_str=prompt_str)
+        if prompt.mark in self.prompts:
+            self.prompts[prompt.mark].merge(prompt)
+        else:
+            self.prompts[prompt.mark] = prompt
+        self.mark = prompt.mark
 
-        logger.info("Prompt initialized with fallback version since it's default")
+    def set_prompt(self, mark: str):
+        if mark in self.prompts:
+            self.mark = mark
 
-    def update(self, prompt_str: str):
-        self.prompt = json.loads(prompt_str)
-        logger.debug(f"Prompt updated")
-        self.notify_subs()
-
-    def __getitem__(self, key: str):
-        try:
-            return self.prompt[key]
-        except:
-            self.prompt = cp(self.fallback)
-            logger.warning("Invalid prompt, using fallback")
-            logger.debug(f"Invalid prompt: {self.prompt}")
+    def get_prompt(self) -> Prompt:
+        return self.prompts[self.mark]

@@ -322,10 +322,7 @@ package-lock.json
 
 
 *.json
-!prompt*.json
-!report*.json
-!measures*.json
-!*.example.json
+!scheme/*
 
     
 /report

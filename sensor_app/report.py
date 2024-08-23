@@ -83,7 +83,8 @@ def get_gpu_load():
 
         # Get GPU utilization
         utilization = nvml.nvmlDeviceGetUtilizationRates(handle)
-
+        
+        nvml.nvmlDeviceGet
         print(f"GPU {i}:")
         print(f"  GPU Load: {utilization.gpu}%")
         print(f"  Memory Load: {utilization.memory}%")

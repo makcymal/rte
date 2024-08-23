@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 # port used to listen to sensors
-SENSORS_PORT = 42400
+SENSORS_PORT = 32300
 
 
 # entry point for the communication with sensors
