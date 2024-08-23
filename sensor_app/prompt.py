@@ -1,7 +1,7 @@
 import json
 import pathlib
 
-from sensor import SENSOR_CATEGORIES
+from config import SENSOR_CATEGORIES
 
 JSON_FALLBACK = pathlib.Path(__file__).parent / "scheme/prompt.fallback.json"
 
@@ -76,13 +76,16 @@ class CategoryPrompt:
         if self.fields:
             for idx, field in enumerate(self.fields):
                 if field in AVAIL_FIELDS[self.cat]:
-                    self.fields[ins_idx] = self.fields[idx]
+                    self.fields[ins_idx] = self.fields[idx].lower().trim()
                     ins_idx += 1
             self.fields = self.fields[:ins_idx]
 
         if self.detailed not in (None, 0, 1):
             self.detailed = 0
-
+            
+        for field, unit in self.units.items():
+            self.units[field] = unit.lower().trim()
+            
     def merge(self, other_prompt):
         if other_prompt.fields:
             self.fields = other_prompt.fields
@@ -109,17 +112,13 @@ class PromptStore:
         self.prompts = {"fallback": Prompt()}
         self.mark = "fallback"
 
-    def add_prompt(self, prompt_str: str):
+    def set_prompt(self, prompt_str: str):
         prompt = Prompt(prompt_str=prompt_str)
         if prompt.mark in self.prompts:
             self.prompts[prompt.mark].merge(prompt)
         else:
             self.prompts[prompt.mark] = prompt
         self.mark = prompt.mark
-
-    def set_prompt(self, mark: str):
-        if mark in self.prompts:
-            self.mark = mark
 
     def get_prompt(self) -> Prompt:
         return self.prompts[self.mark]

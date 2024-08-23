@@ -58,7 +58,7 @@ async def recv_prompts():
         prompt_str = await conn.recvall()
         logger.debug(f"Received prompt: {prompt_str}")
         async with prompt_lock:
-            prompt_store.add_prompt(prompt_str)
+            prompt_store.set_prompt(prompt_str)
 
 
 async def aio_task(func):

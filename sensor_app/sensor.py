@@ -1,73 +1,133 @@
 import psutil as ps
 import json
 
-SENSOR_CATEGORIES = ["cpu", "net", "mem", "dsk", "gpu"]
+from config import SENSOR_CATEGORIES
+from prompt import Prompt, PromptStore
+
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+
 SPECS_SCHEME = json.load(open("scheme/specs.json", "r"))
 
 
-class CpuSpecs:
-    __slots__ = SPECS_SCHEME['cpu']['fields']
+def byte_converter(amount: int, into: str) -> float:
+    match into:
+        case "kb":
+            amount = round(amount / 1024, 2)
+        case "mb":
+            amount = round(amount / 1024**2, 2)
+        case "gb":
+            amount = round(amount / 1024**3, 2)
+        case "tb":
+            amount = round(amount / 1024**4, 2)
+    return amount
+
+
+def mhz_converter(amount: float, into: str) -> float:
+    amount = int(amount)
+    match into:
+        case "hz":
+            amount *= 1024**2
+        case "khz":
+            amount *= 1024
+        case "ghz":
+            amount = round(amount / 1024, 2)
+    return amount
+
+
+class Tracker:
+    __slots__ = "specs"
 
     def __init__(self):
-        self.cores_phys = ps.cpu_count(logical=False)
-        self.cores_logic = ps.cpu_count(logical=True)
+        self.specs = self.get_specs()
+
+    def track(self, prompt: Prompt):
+        cat_prompt = getattr(prompt, self.__class__.CATEGORY)
+        if not cat_prompt.detailed:
+            report = self.get_report(cat_prompt.fields, cat_prompt.units)
+        else:
+            report = self.get_report_detailed(cat_prompt.fields, cat_prompt.units)
+        return report
+
+
+class CpuTracker(Tracker):
+    CATEGORY = "cpu"
+
+    def get_specs(self) -> dict:
+        units = SPECS_SCHEME["cpu"]["units"]
+
+        specs = {}
+        specs["cores_phys"] = ps.cpu_count(logical=False)
+        specs["cores_logic"] = ps.cpu_count(logical=True)
 
         cpu_freq = ps.cpu_freq(percpu=True)
-        self.min_freq = [core.min for core in cpu_freq]
-        self.max_freq = [core.max for core in cpu_freq]
+        specs["min_freq"] = [
+            mhz_converter(each_freq.min, units["min_freq"]) for each_freq in cpu_freq
+        ]
+        specs["max_freq"] = [
+            mhz_converter(each_freq.max, units["max_freq"]) for each_freq in cpu_freq
+        ]
 
+        for field, value in specs.items():
+            if units[field]:
+                specs[field] = str(value) + " " + units[field]
 
-class CpuSensor:
-    __slots__ = (
-        "specs",
-        "prompts",
-        "mark",
-    )
+        return specs
 
-    def __init__(self):
-        self.specs = CpuSpecs()
-        self.prompts = {"fallback": CpuPrompt()}
-        self.mark = "fallback"
-
-    def _report(self):
+    def get_report(self, fields: list[str], units: dict) -> dict:
         report = {}
 
         cpu_times = ps.cpu_times_percent(percpu=False)
-        report = {field: getattr(cpu_times, field) for field in self.prompts[self.mark].fields}
+        report = {
+            field: value
+            for field in fields
+            if (value := getattr(cpu_times, field, None)) is not None
+        }
 
-        if "freq" in self.fields:
-            cpu_freq = ps.cpu_freq(percpu=False)
-            report["freq"] = round(
-                cpu_freq.current * 1000 if cpu_freq.current < 10 else cpu_freq.current
-            )
+        if "freq" in fields:
+            freq = ps.cpu_freq(percpu=False)
+            report["freq"] = mhz_converter(freq.current, units["freq"])
 
         return report
 
-    def _report_percpu(self):
+    def get_report_detailed(self, fields: list[str], units: dict) -> list[dict]:
         report = []
 
         cpu_times_percpu = ps.cpu_times_percent(percpu=True)
         report = [
-            {field: getattr(cpu_times, field) for field in self.prompts[self.mark].fields}
+            {
+                field: value
+                for field in fields
+                if (value := getattr(cpu_times, field, None)) is not None
+            }
             for cpu_times in cpu_times_percpu
         ]
 
-        if "freq" in self.fields:
-            cpu_freq_percpu = ps.cpu_freq(percpu=True)
-            for each_report, freq in zip(report, cpu_freq_percpu):
-                each_report["freq"] = round(
-                    freq.current * 1000 if freq.current < 10 else freq.current
-                )
+        if "freq" in fields:
+            freq_percpu = ps.cpu_freq(percpu=True)
+            for each_report, each_freq in zip(report, freq_percpu):
+                each_report["freq"] = mhz_converter(each_freq.current, units["freq"])
 
-        return report
-    
-    def get_report(self):
-        if not self.prompt[self.mark].detailed:
-            report = self._report()
-        else:
-            report = self._report_percpu()
         return report
 
 
 def all_trackers():
-    return []
+    return [CpuTracker()]
+
+
+from time import sleep
+
+cpu = CpuTracker()
+
+print(cpu.specs)
+
+prompt_store = PromptStore()
+prompt = prompt_store.get_prompt()
+
+while True:
+    report = cpu.track(prompt)
+    print(report)
+    sleep(2)
