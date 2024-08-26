@@ -322,7 +322,7 @@ package-lock.json
 
 
 *.json
-!scheme/*
+!*scheme/*
 
     
 /report

@@ -1,0 +1,119 @@
+{
+    "cpu": {
+        "system": [
+            "%"
+        ],
+        "user": [
+            "%"
+        ],
+        "nice": [
+            "%"
+        ],
+        "iowait": [
+            "%"
+        ],
+        "idle": [
+            "%"
+        ],
+        "irq": [
+            "%"
+        ],
+        "softirq": [
+            "%"
+        ],
+        "steal": [
+            "%"
+        ],
+        "guest": [
+            "%"
+        ],
+        "guest_nice": [
+            "%"
+        ],
+        "freq": [
+            "khz",
+            "mhz",
+            "ghz"
+        ]
+    },
+    "net": {
+        "recv": [
+            "kb",
+            "mb",
+            "gb"
+        ],
+        "sent": [
+            "kb",
+            "mb",
+            "gb"
+        ],
+        "errin": [
+            "pcs"
+        ],
+        "errout": [
+            "pcs"
+        ],
+        "dropin": [
+            "pcs"
+        ],
+        "dropout": [
+            "pcs"
+        ]
+    },
+    "mem": {
+        "used": [
+            "kb",
+            "mb",
+            "gb"
+        ],
+        "buffers": [
+            "kb",
+            "mb",
+            "gb"
+        ],
+        "cached": [
+            "kb",
+            "mb",
+            "gb"
+        ],
+        "shared": [
+            "kb",
+            "mb",
+            "gb"
+        ],
+        "swap": [
+            "kb",
+            "mb",
+            "gb"
+        ]
+    },
+    "dsk": {
+        "used": [
+            "kb",
+            "mb",
+            "gb",
+            "tb"
+        ],
+        "read": [
+            "kb",
+            "mb",
+            "gb"
+        ],
+        "write": [
+            "kb",
+            "mb",
+            "gb"
+        ]
+    },
+    "gpu": {
+        "fields": [
+            "load",
+            "memory"
+        ],
+        "detailed": 0,
+        "units": {
+            "load": "%",
+            "memory": "mb"
+        }
+    }
+}

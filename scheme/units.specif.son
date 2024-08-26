@@ -1,0 +1,27 @@
+{
+    "cpu": {
+        "cores_phys": "pcs",
+        "cores_logic": "pcs",
+        "min_freq": "mhz",
+        "max_freq": "mhz"
+    },
+    "net": {
+        "nics": "str"
+    },
+    "mem": {
+        "mem_total": "gb",
+        "swap_total": "gb"
+    },
+    "dsk": {
+        "disks": "str",
+        "mountpoint": "str",
+        "total": "gb"
+    },
+    "gpu": {
+        "gpus": "str",
+        "dedic_mem": "gb"
+    },
+    "tmp": {
+        "zones": "str"
+    }
+}
