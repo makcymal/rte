@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 
 from router import router
-from streaming.sensors import serve_sensors
+from monitoring.sensors import serve_sensors
 
 
 logger = logging.getLogger(__name__)
@@ -17,9 +17,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def startup_event(app: FastAPI):
     aio.create_task(serve_sensors())
-    logger.info("Started server listening to sensors")
+    logger.info("Server started listening to sensors")
 
-    # наивный envelope
     yield
 
 

@@ -15,107 +15,119 @@ logger = logging.getLogger(__name__)
 PEER_DISCONNECTED = f"{secrets.randbits(32)}"
 
 
-class ClientRepo:
-    __slots__ = ("_ls", "queries", "subs")
-
-    def __init__(self) -> None:
-        self._ls = set()
-        self.queries = {}
-        self.subs = {}
-
-    async def connect(self, ws: WebSocket):
-        await ws.accept()
-        # self._ls.add(ws)
-        logger.info(f"Client {ws.client} established connection via WebSocket")
-
-    def subscribe(self, ws: WebSocket, query: str):
-        if self.queries.get(ws, None) == query:
-            logger.info(f"Client {ws.client} is already subscribed to query {query}")
-            return
-
-        self.unsubscribe(ws)
-
-        self.queries[ws] = query
-        if query not in self.subs:
-            self.subs[query] = set()
-        self.subs[query].add(ws)
-        queries.insert(query)
-        logger.info(f"Client {ws.client} subscribed to query {query}")
-
-    def notify(self, query: str, resp: dict):
-        sub: WebSocket
-        for sub in self.subs.get(query, []):
-            logger.info(
-                f"Sending response {resp} to client {sub.client} on query {query}"
-            )
-            aio.create_task(sub.send_json(resp))
-
-    def unsubscribe(self, ws: WebSocket):
-        if ws not in self.queries:
-            logger.info(f"Client {ws.client} is already unsubscribed")
-            return
-
-        old_query = self.queries[ws]
-        self.subs[self.queries[ws]].remove(ws)
-        del self.queries[ws]
-        queries.remove(old_query)
-        logger.info(f"Client {ws.client} is unsubscribed from query {old_query}")
-
-    def disconnect(self, ws: WebSocket):
-        self.unsubscribe(ws)
-        # self._ls.remove(ws)
-        logger.info(f"Client {ws.client} disconnected")
-
-
 @dataclass(frozen=True, slots=True)
 class Sensor:
     reader: aio.StreamReader
     writer: aio.StreamWriter
     specs: dict
+    
+    
+@dataclass(frozen=True, slots=True)
+class PromptMeta:
+    group: str
+    machine: str
+    mark: str
 
 
-class SensorRepo:
-    __slots__ = ("_ls", "batches")
+prompt_marks = ["group", "machine", "db"]
 
-    def __init__(self) -> None:
-        self._ls = {}
-        self.batches = []
 
-    def __iter__(self) -> list[Sensor]:
-        return self._ls
+def load_prompts() -> dict:
+    prompts_sources = {}
+    for mark in prompt_marks:
+        with open(f"../json/prompt.{mark}.json", "r") as prompt_file:
+            prompts_sources[mark] = json.load(prompt_file)
+    return prompts_sources
 
-    def insert(
-        self,
-        batch: str,
-        label: str,
-        reader: aio.StreamReader,
-        writer: aio.StreamWriter,
-        specs: dict,
-    ):
-        if batch not in self._ls.keys():
-            self._ls[batch] = {}
-            self.batches.append(batch)
-            responses.add_batch(batch)
-        self._ls[batch][label] = Sensor(reader, writer, specs)
-        logger.info(f"Sensor {batch}!{label} established connection")
-        logger.info(f"Sensor {batch}!{label} specs: {specs}")
+
+# sensors[group][machine] = Sensor(reader, writer, specs)
+sensors = {}
+# reports[mark][group][machine] = report as dict
+reports = {mark: {} for mark in prompt_marks}
+# prompt_sources[mark] = prompt as dict
+prompt_sources = load_prompts()
+# prompt_subs[group][machine][mark] = set[ws]
+prompt_subs = {"*": {}}
+# client_prompts[ws] = PromptMeta(group, machine, mark)
+client_prompts = {}
+# groups_list = list[group]
+groups_list = []
+
+
+async def start_monitoring(ws: WebSocket, group: str, machine: str, mark: str):
+    stop_monitoring(ws)
+    client_prompts[ws] = PromptMeta(group, machine, mark)
+    prompt_subs[group][machine][mark].insert(ws)
+    await send_mark(group, machine, mark, "add_prompt")
+    
+    
+async def stop_monitoring(ws: WebSocket):
+    if ws not in client_prompts:
+        return
+    meta = client_prompts[ws]
+    prompt_subs[meta.group][meta.machine][meta.mark].discard(ws)
+    del client_prompts[ws]
+    await send_mark(meta.group, meta.machine, meta.mark, "del_prompt")
+    
+
+def add_sensor(
+    group: str,
+    machine: str,
+    reader: aio.StreamReader,
+    writer: aio.StreamWriter,
+    specs: dict,
+):
+    if group not in sensors:
+        groups_list.append(group)
+        sensors[group] = {}
+        
+        prompt_subs[group] = {}
+        prompt_subs[group]["*"] = {}
+        
+        for mark in prompt_marks:
+            reports[mark][group] = {}
+            
+    if machine not in prompt_subs[group]:
+        prompt_subs[group][machine] = {}
+        
+    sensors[group][machine] = Sensor(reader, writer, specs)
+
+
+async def send_mark(group: str, machine: str, mark: str, type: str):
+    async def single_send_mark(group: str, machine: str, mark: str, type: str):
+        writer = sensors[group][machine].writer
+        query = {"type": type, "mark": mark}
+        await sendall(json.dumps(query), writer)
+    
+    if group == "*":
+        for sns_group in sensors:
+            for sns_machine in sensors[sns_group]:
+                await single_send_mark(sns_group, sns_machine, mark)
+    elif machine == '*':
+        for sns_machine in sensors[group]:
+            await single_send_mark(group, sns_machine, mark)
+    else:
+        await single_send_mark(group, machine, mark)
 
     
-    def get_specs(self, batch: str, label: str):
-        return self._ls[batch][label].specs
+def add_report(group: str, machine: str, mark: str, report: dict):
+    match mark:
+        case "group":
+            # reports[group][machine] = 
+            ...
+        
+        case "machine":
+            ...
+            
+        case "db":
+            ...
+
+
+def send_report(group: str, machine: str, mark: str):
+    ...
 
 
 class ResponseRepo:
-    __slots__ = ("std", "ext")
-
-    def __init__(self) -> None:
-        self.std = {}
-        self.ext = {}
-
-    def add_batch(self, batch: str):
-        self.std[batch] = {}
-        self.ext[batch] = {}
-        logger.info(f"Got new batch {batch}")
 
     def insert(self, batch: str, label: str, resp: dict) -> str:
         logger.info(
@@ -135,13 +147,13 @@ class ResponseRepo:
             logger.info(f"Added mext response from sensor {batch}!{label}")
 
             # someone monitoring the whole batch including current particular machine
-            if batch in queries:
+            if batch in prompts:
                 self.std[batch][label] = {
                     "header": header,
                     **self.standartise_response(batch, label, resp),
                 }
                 logger.info(
-                    f"There is batch {batch} in queries so added mstd response from sensor {batch}!{label}"
+                    f"There is batch {batch} in prompts so added mstd response from sensor {batch}!{label}"
                 )
             return "ext"
 
@@ -154,10 +166,10 @@ class ResponseRepo:
             }
             for key, val in net.items()
         ]
-        
+
         mem = resp["mem"]
         resp["mem"] = [mem]
-        
+
         dsk = resp["dsk"]
         resp["dsk"] = [
             {
@@ -193,7 +205,7 @@ class ResponseRepo:
             return {}
 
         cpu: dict = cp(cpu_percore[0])
-        cpu_std_fields = set(queries.std["cpu_fields"])
+        cpu_std_fields = set(prompts.std["cpu_fields"])
         for field in cpu:
             if field not in cpu_std_fields:
                 cpu.pop(field)
@@ -208,7 +220,7 @@ class ResponseRepo:
             return {}
 
         net = cp(net_pernic[nics[0]])
-        net_std_fields = set(queries.std["net_fields"])
+        net_std_fields = set(prompts.std["net_fields"])
         for field in net.keys():
             if field not in net_std_fields:
                 net.pop(field)
@@ -240,7 +252,7 @@ class ResponseRepo:
             return {}
 
         dsk = cp(dsk_perdisk[disks[0]])
-        dsk_std_fields = set(queries.std["dsk_fields"])
+        dsk_std_fields = set(prompts.std["dsk_fields"])
         for field in dsk:
             if field not in dsk_std_fields:
                 dsk.pop(field)
@@ -255,73 +267,72 @@ class QueryRepo:
     __slots__ = ("std", "std_str", "ext", "ext_str", "query_set", "query_cnt")
 
     def __init__(self) -> None:
-        with open("json/query.standard.json", "r") as std_file:
+        with open("json/prompt.standard.json", "r") as std_file:
             self.std = json.load(std_file)
             self.std_str = json.dumps(self.std)
-        with open("json/query.extended.json", "r") as ext_file:
+        with open("json/prompt.extended.json", "r") as ext_file:
             self.ext = json.load(ext_file)
             self.ext_str = json.dumps(self.ext)
 
-        # all queries existing right now
+        # all prompts existing right now
         self.query_set = set()
-        # map query -> #{how much such a queries exist}
+        # map prompt -> #{how much such a prompts exist}
         self.query_cnt = {}
 
-    def __contains__(self, query: str) -> bool:
-        return self.query_set.__contains__(query)
+    def __contains__(self, prompt: str) -> bool:
+        return self.query_set.__contains__(prompt)
 
-    def insert(self, query: str):
+    def insert(self, prompt: str):
         # стандартный майкрософтовский энвелоуп
-        self.query_set.add(query)
-        if query not in self.query_cnt:
-            self.query_cnt[query] = 0
-            logger.info(f"Got new query {query}, updating it on sensors...")
-        if self.query_cnt[query] == 0:
-            aio.create_task(self.inject_query(query))
-        self.query_cnt[query] += 1
+        self.query_set.add(prompt)
+        if prompt not in self.query_cnt:
+            self.query_cnt[prompt] = 0
+            logger.info(f"Got new prompt {prompt}, updating it on sensors...")
+        if self.query_cnt[prompt] == 0:
+            aio.create_task(self.inject_query(prompt))
+        self.query_cnt[prompt] += 1
 
-    def remove(self, query: str):
-        self.query_cnt[query] -= 1
-        if self.query_cnt[query] == 0:
-            self.query_set.remove(query)
-            logger.info(f"Removed query {query}, updating it on sensors...")
-            aio.create_task(self.seize_query(query))
+    def remove(self, prompt: str):
+        self.query_cnt[prompt] -= 1
+        if self.query_cnt[prompt] == 0:
+            self.query_set.remove(prompt)
+            logger.info(f"Removed prompt {prompt}, updating it on sensors...")
+            aio.create_task(self.seize_query(prompt))
 
-    async def inject_query(self, query: str):
-        tokens = query.split("!")
-        
+    async def inject_query(self, prompt: str):
+        tokens = prompt.split("!")
 
         if len(tokens) == 1:
-            batch = query
+            batch = prompt
             for label in sensors._ls[batch]:
                 if f"{batch}!{label}" not in self.query_set:
                     sensor: Sensor = sensors._ls[batch][label]
                     await sendall(self.std_str, sensor.writer)
                 else:
                     logger.info(
-                        f"Didn't inject std query {query} to sensor {batch}!{label} since it has ext query"
+                        f"Didn't inject std prompt {prompt} to sensor {batch}!{label} since it has ext prompt"
                     )
         else:
             batch, label = tokens[:2]
             sensor: Sensor = sensors._ls[batch][label]
             await sendall(self.ext_str, sensor.writer)
-            logger.info(f"Injected ext query {query} to sensor {batch}!{label}")
+            logger.info(f"Injected ext prompt {prompt} to sensor {batch}!{label}")
 
-    async def seize_query(self, query: str):
-        tokens = query.split("!")
-        
+    async def seize_query(self, prompt: str):
+        tokens = prompt.split("!")
+
         if len(tokens) == 1:
-            batch = query
+            batch = prompt
             for label in sensors._ls[batch]:
                 if f"{batch}!{label}" not in self.query_set:
                     sensor: Sensor = sensors._ls[batch][label]
                     await sendall("stop", sensor.writer)
                     logger.info(
-                        f"Seized std query {query} from sensor {batch}!{label}"
+                        f"Seized std prompt {prompt} from sensor {batch}!{label}"
                     )
                 else:
                     logger.info(
-                        f"Didn't seize query {query} from sensor {batch}!{label} since it has ext query"
+                        f"Didn't seize prompt {prompt} from sensor {batch}!{label} since it has ext prompt"
                     )
         else:
             batch, label = tokens[:2]
@@ -329,17 +340,17 @@ class QueryRepo:
             if batch in self.query_set:
                 await sendall(self.std_str, sensor.writer)
                 logger.info(
-                    f"Replaces ext query {query} with std on sensor {batch}!{label}"
+                    f"Replaces ext prompt {prompt} with std on sensor {batch}!{label}"
                 )
             else:
                 await sendall("stop", sensor.writer)
-                logger.info(f"Seized ext query {query} from sensor {batch}!{label}")
+                logger.info(f"Seized ext prompt {prompt} from sensor {batch}!{label}")
 
 
-clients = ClientRepo()
-sensors = SensorRepo()
-responses = ResponseRepo()
-queries = QueryRepo()
+clients = ClientSet()
+sensors = SensorSet()
+reports = ReportSet()
+prompts = PromptSet()
 
 
 async def recvall(reader: aio.StreamReader) -> str:

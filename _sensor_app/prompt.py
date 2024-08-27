@@ -3,11 +3,12 @@ import pathlib
 
 from config import SENSOR_CATEGORIES
 
-import logging
+JSON_FALLBACK = pathlib.Path(__file__).parent / "scheme/prompt.fallback.json"
 
-logger = logging.getLogger(__name__)
-
-JSON_FALLBACK = pathlib.Path(__file__).parent / "prompt.fallback.json"
+AVAIL_FIELDS = {
+    cat: set(json.load(open(JSON_FALLBACK, "r"))[cat]["units"].keys())
+    for cat in SENSOR_CATEGORIES
+}
 
 
 class Prompt:
@@ -35,6 +36,10 @@ class Prompt:
         for cat in SENSOR_CATEGORIES:
             setattr(self, cat, CategoryPrompt(cat, prompt_dict[cat]))
 
+    def validate(self):
+        for cat in SENSOR_CATEGORIES:
+            getattr(self, cat).validate()
+
     def merge(self, other_prompt):
         self.interval = other_prompt.interval
         for cat in SENSOR_CATEGORIES:
@@ -55,20 +60,39 @@ class Prompt:
 
 
 class CategoryPrompt:
-    __slots__ = ("cat", "fields", "detailed")
+    __slots__ = ("cat", "fields", "detailed", "units")
 
     def __init__(self, cat: str, prompt_dict: dict | None):
         self.cat = cat
-        if prompt_dict is None:
-            prompt_dict = {}
-        self.fields = prompt_dict.get("fields", None)
-        self.detailed = prompt_dict.get("detailed", None)
+        if prompt_dict:
+            for attr in self.__class__.__slots__[1:]:
+                setattr(self, attr, prompt_dict.get(attr, None))
+        else:
+            for attr in self.__class__.__slots__[1:]:
+                setattr(self, attr, None)
 
+    def validate(self):
+        ins_idx = 0
+        if self.fields:
+            for idx, field in enumerate(self.fields):
+                if field in AVAIL_FIELDS[self.cat]:
+                    self.fields[ins_idx] = self.fields[idx].lower().trim()
+                    ins_idx += 1
+            self.fields = self.fields[:ins_idx]
+
+        if self.detailed not in (None, 0, 1):
+            self.detailed = 0
+            
+        for field, unit in self.units.items():
+            self.units[field] = unit.lower().trim()
+            
     def merge(self, other_prompt):
         if other_prompt.fields:
             self.fields = other_prompt.fields
         if other_prompt.detailed:
             self.detailed = other_prompt.detailed
+        if other_prompt.units:
+            self.units.update(other_prompt.units)
 
     def __str__(self) -> str:
         return "\n".join(
@@ -76,6 +100,7 @@ class CategoryPrompt:
                 f"{self.cat.capitalize()}Prompt:",
                 f"\tfields: {self.fields}",
                 f"\tdetailed: {self.detailed}",
+                f"\tunits: {self.units}",
             ]
         )
 

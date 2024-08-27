@@ -1,7 +1,13 @@
 import json
 import logging
 import asyncio as aio
-from streaming.store import sensors, responses, PEER_DISCONNECTED, recvall, sendall
+from store import (
+    add_sensor,
+    add_report,
+    send_report,
+    PEER_DISCONNECTED,
+    recvall,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -24,12 +30,22 @@ async def handle_sensor(reader: aio.StreamReader, writer: aio.StreamWriter):
     logger.info(f"Connected {writer.get_extra_info('peername')}")
     # recieving specs
     specs = json.loads(await recvall(reader))
-    proto, batch, label = specs.pop("header").split("!")[:3]
-    sensors.insert(batch, label, reader, writer, specs)
+
+    type = specs["type"]
+    if type == "specs":
+        group = specs["group"]
+        machine = specs["machine"]
+        add_sensor(group, machine, reader, writer, specs)
+
     # recieving responses
     while True:
-        if (resp := await recvall(reader)) == PEER_DISCONNECTED:
+        if (report := json.loads(await recvall(reader))) == PEER_DISCONNECTED:
             break
-        # trigger sending resp to client
-        mark = responses.insert(batch, label, json.loads(resp))
-        responses.send_last(mark, batch, label)
+
+        type = report["type"]
+        if type == "report":
+            group = report["group"]
+            machine = report["machine"]
+            mark = report["mark"]
+            add_report(group, machine, mark, report)
+            send_report(group, machine, mark)

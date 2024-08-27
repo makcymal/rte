@@ -12,19 +12,13 @@ from starlette.responses import JSONResponse
 from models import User
 from config import settings
 from auth import encode_jwt, decode_jwt
-from streaming.clients import ws_router
+from monitoring.clients import router as mon_router
 
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-router.include_router(ws_router)
-
-
-@router.get("/")
-async def get():
-    logger.info("GET: /")
-    return {"hello": "hello"}
+router.include_router(mon_router)
 
 
 ipa_client = ClientMeta("ipa1-hlit.jinr.ru")

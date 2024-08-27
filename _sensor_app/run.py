@@ -8,7 +8,7 @@ from asyncio import CancelledError
 import config
 from connection import Connection, CONN_ERROR
 from prompt import PromptStore
-
+from sensor import all_trackers
 
 
 logger = logging.getLogger(__name__)
@@ -16,14 +16,7 @@ logger = logging.getLogger(__name__)
 conn = Connection()
 prompt_lock = aio.Lock()
 prompt_store = PromptStore()
-sensors = [
-    CpuSensor(),
-    NetSensor(),
-    MemSensor(),
-    DskSensor(),
-    GpuSensor(),
-    TmpSensor(),
-]
+trackers = all_trackers()
 
 
 async def send_specs():
@@ -32,7 +25,7 @@ async def send_specs():
             "type": "specs",
             "group": config.GROUP,
             "machine": config.MACHINE,
-            **{str(tracker): tracker.specs() for tracker in sensors},
+            **{str(tracker): tracker.specs() for tracker in trackers},
         }
     )
     await conn.sendall(specs)
@@ -51,7 +44,7 @@ async def send_reports():
                     "machine": config.MACHINE,
                     "time": round(time.time()),
                     "mark": prompt_store.mark,
-                    **{str(tracker): tracker.report(prompt) for tracker in sensors},
+                    **{str(tracker): tracker.report(prompt) for tracker in trackers},
                 }
             )
             await conn.sendall(report)

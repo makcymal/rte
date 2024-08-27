@@ -1,133 +1,90 @@
-import psutil as ps
 import json
+import psutil as ps
+from py3nvml import py3nvml as nvidia
+import os
 
 from config import SENSOR_CATEGORIES
-from prompt import Prompt, PromptStore
-
-import logging
 
 
-logger = logging.getLogger(__name__)
+class CategorySpecs:
+    @staticmethod
+    def load_dict(specs_dict: dict):
+        self = __class__()
+        for attr in self.__class__.__slots__:
+            setattr(self, attr, specs_dict.get(attr, None))
 
-
-SPECS_SCHEME = json.load(open("scheme/specs.json", "r"))
-
-
-def byte_converter(amount: int, into: str) -> float:
-    match into:
-        case "kb":
-            amount = round(amount / 1024, 2)
-        case "mb":
-            amount = round(amount / 1024**2, 2)
-        case "gb":
-            amount = round(amount / 1024**3, 2)
-        case "tb":
-            amount = round(amount / 1024**4, 2)
-    return amount
-
-
-def mhz_converter(amount: float, into: str) -> float:
-    amount = int(amount)
-    match into:
-        case "hz":
-            amount *= 1024**2
-        case "khz":
-            amount *= 1024
-        case "ghz":
-            amount = round(amount / 1024, 2)
-    return amount
-
-
-class Tracker:
-    __slots__ = "specs"
-
-    def __init__(self):
-        self.specs = self.get_specs()
-
-    def track(self, prompt: Prompt):
-        cat_prompt = getattr(prompt, self.__class__.CATEGORY)
-        if not cat_prompt.detailed:
-            report = self.get_report(cat_prompt.fields, cat_prompt.units)
-        else:
-            report = self.get_report_detailed(cat_prompt.fields, cat_prompt.units)
-        return report
-
-
-class CpuTracker(Tracker):
-    CATEGORY = "cpu"
-
-    def get_specs(self) -> dict:
-        units = SPECS_SCHEME["cpu"]["units"]
-
+    def dump_dict(self) -> dict:
         specs = {}
-        specs["cores_phys"] = ps.cpu_count(logical=False)
-        specs["cores_logic"] = ps.cpu_count(logical=True)
+        for attr in self.__class__.__slots__:
+            value = getattr(self, attr)
+            if value is not None:
+                specs[attr] = value
+
+
+class CpuSpecs(CategorySpecs):
+    __slots__ = ("physical_cores", "logical_cores", "min_frequency", "max_frequency")
+
+    @staticmethod
+    def read():
+        self = CpuSpecs()
+        self.physical_cores = ps.cpu_count(logical=False)
+        self.logical_cores = ps.cpu_count(logical=True)
 
         cpu_freq = ps.cpu_freq(percpu=True)
-        specs["min_freq"] = [
-            mhz_converter(each_freq.min, units["min_freq"]) for each_freq in cpu_freq
-        ]
-        specs["max_freq"] = [
-            mhz_converter(each_freq.max, units["max_freq"]) for each_freq in cpu_freq
-        ]
+        self.min_frequency = [each_freq.min for each_freq in cpu_freq]
+        self.max_frequency = [each_freq.max for each_freq in cpu_freq]
 
-        for field, value in specs.items():
-            if units[field]:
-                specs[field] = str(value) + " " + units[field]
 
-        return specs
+class GpuSpecs(CategorySpecs):
+    __slots__ = ("graphics_processing_units",)
 
-    def get_report(self, fields: list[str], units: dict) -> dict:
-        report = {}
+    def read(self):
+        count = nvidia.nvmlDeviceGetCount()
+        self.gpus = []
+        for idx in range(count):
+            handle = nvidia.nvmlDeviceGetHandleByIndex(idx)
+            self.gpus.append(
+                {
+                    "name": nvidia.nvmlDeviceGetName(handle),
+                    "memory_volume": nvidia.nvmlDeviceGetMemoryInfo(handle).total,
+                }
+            )
 
-        cpu_times = ps.cpu_times_percent(percpu=False)
-        report = {
-            field: value
-            for field in fields
-            if (value := getattr(cpu_times, field, None)) is not None
-        }
 
-        if "freq" in fields:
-            freq = ps.cpu_freq(percpu=False)
-            report["freq"] = mhz_converter(freq.current, units["freq"])
+class NetSpecs(CategorySpecs):
+    __slots__ = ("interfaces",)
 
-        return report
+    def read(self):
+        self.interfaces = list(ps.net_io_counters(pernic=True).keys())
 
-    def get_report_detailed(self, fields: list[str], units: dict) -> list[dict]:
-        report = []
 
-        cpu_times_percpu = ps.cpu_times_percent(percpu=True)
-        report = [
+class RamSpecs(CategorySpecs):
+    __slots__ = ("ram_volume", "swap_volume")
+
+    def read(self):
+        self.ram_volume = ps.virtual_memory().total
+        self.swap_volume = ps.swap_memory().total
+
+
+class NvmSpecs(CategorySpecs):
+    __slots__ = ("disks",)
+
+    def read(self):
+        self.disks = [
             {
-                field: value
-                for field in fields
-                if (value := getattr(cpu_times, field, None)) is not None
+                "name": os.path.basename(prt.device),
+                "mountpoint": prt.mountpoint,
+                "disk_volume": round(
+                    ps.disk_usage(prt.mountpoint).total / self.bytes_denom
+                ),
             }
-            for cpu_times in cpu_times_percpu
+            for prt in ps.disk_partitions()
         ]
 
-        if "freq" in fields:
-            freq_percpu = ps.cpu_freq(percpu=True)
-            for each_report, each_freq in zip(report, freq_percpu):
-                each_report["freq"] = mhz_converter(each_freq.current, units["freq"])
 
-        return report
+class CpuReport:
+    __slots__ = ("specs", "fields", "detailed")
 
-
-def all_trackers():
-    return [CpuTracker()]
-
-
-from time import sleep
-
-cpu = CpuTracker()
-
-print(cpu.specs)
-
-prompt_store = PromptStore()
-prompt = prompt_store.get_prompt()
-
-while True:
-    report = cpu.track(prompt)
-    print(report)
-    sleep(2)
+    def __init__(self) -> None:
+        self.specs = CpuSpecs()
+        self.specs.read()
